@@ -1,215 +1,143 @@
-let noteTitle;
-let noteText;
-let saveNoteBtn;
-let newNoteBtn;
-let noteList;
+var $noteTitle = $(".note-title");
+var $noteText = $(".note-textarea");
+var $saveNoteBtn = $(".save-note");
+var $newNoteBtn = $(".new-note");
+var $noteList = $(".list-container .list-group");
 
-// Check if the current page is the notes page
-if (window.location.pathname === '/notes') {
-  // Initialize variables for different elements
-  noteTitle = document.querySelector('.note-title');
-  noteText = document.querySelector('.note-textarea');
-  saveNoteBtn = document.querySelector('.save-note');
-  newNoteBtn = document.querySelector('.new-note');
-  noteList = document.querySelectorAll('.list-container .list-group');
-}
+// activeNote is used to keep track of the note in the textarea
+var activeNote = {};
 
-// Function to show an element
-const show = (elem) => {
-  elem.style.display = 'inline';
-};
-
-const notesPageURL = '/notes'; 
-
-// Function to hide an element
-const hide = (elem) => {
-  elem.style.display = 'none';
-};
-
-// Object to store the active note
-let activeNote = {};
-
-// Fetch notes from the server
-const getNotes = () => {
-  return fetch('/api/notes', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+// A function for getting all notes from the db
+var getNotes = function() {
+  return $.ajax({
+    url: "/api/notes",
+    method: "GET"
   });
 };
 
-// Save a new note on the server
-const saveNote = (note) => {
-  return fetch('/api/notes', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(note),
+// A function for saving a note to the db
+var saveNote = function(note) {
+  return $.ajax({
+    url: "/api/notes",
+    data: note,
+    method: "POST"
   });
 };
 
-// Delete a note from the server
-const deleteNote = (id) => {
-  return fetch(`/api/notes/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+// BONUS A function for deleting a note from the db
+var deleteNote = function(id) {
+  return $.ajax({
+    url: "api/notes/" + id,
+    method: "DELETE"
   });
 };
 
-// Update the active note display
-const renderActiveNote = () => {
-  hide(saveNoteBtn);
+// If there is an activeNote, display it, otherwise render empty inputs
+var renderActiveNote = function() {
+  $saveNoteBtn.hide();
 
   if (activeNote.id) {
-    noteTitle.setAttribute('readonly', true);
-    noteText.setAttribute('readonly', true);
-    noteTitle.value = activeNote.title;
-    noteText.value = activeNote.text;
+    $noteTitle.attr("readonly", true);
+    $noteText.attr("readonly", true);
+    $noteTitle.val(activeNote.title);
+    $noteText.val(activeNote.text);
   } else {
-    noteTitle.removeAttribute('readonly');
-    noteText.removeAttribute('readonly');
-    noteTitle.value = '';
-    noteText.value = '';
+    $noteTitle.attr("readonly", false);
+    $noteText.attr("readonly", false);
+    $noteTitle.val("");
+    $noteText.val("");
   }
 };
 
-// Save the active note
-const handleNoteSave = () => {
-  const newNote = {
-    title: noteTitle.value,
-    text: noteText.value,
+// Get the note data from the inputs, save it to the db and update the view
+var handleNoteSave = function() {
+  var newNote = {
+    title: $noteTitle.val(),
+    text: $noteText.val()
   };
-  saveNote(newNote).then(() => {
+
+  saveNote(newNote).then(function(data) {
     getAndRenderNotes();
     renderActiveNote();
   });
 };
 
-// Delete a note
-const handleNoteDelete = (e) => {
-  e.stopPropagation();
+// BONUS Delete the clicked note
+var handleNoteDelete = function(event) {
+  // prevents the click listener for the list from being called when the button inside of it is clicked
+  event.stopPropagation();
 
-  const note = e.target;
-  const noteId = JSON.parse(note.parentElement.getAttribute('data-note')).id;
+  var note = $(this)
+    .parent(".list-group-item")
+    .data();
 
-  if (activeNote.id === noteId) {
+  if (activeNote.id === note.id) {
     activeNote = {};
   }
 
-  deleteNote(noteId).then(() => {
+  deleteNote(note.id).then(function() {
     getAndRenderNotes();
     renderActiveNote();
   });
 };
 
-// View a note
-const handleNoteView = (e) => {
-  e.preventDefault();
-  activeNote = JSON.parse(e.target.parentElement.getAttribute('data-note'));
+// Sets the activeNote and displays it
+var handleNoteView = function() {
+  activeNote = $(this).data();
   renderActiveNote();
 };
 
-// Start a new note
-const handleNewNoteView = (e) => {
+// Sets the activeNote to and empty object and allows the user to enter a new note
+var handleNewNoteView = function() {
   activeNote = {};
   renderActiveNote();
 };
 
-// Update the save button display
-const handleRenderSaveBtn = () => {
-  if (!noteTitle.value.trim() || !noteText.value.trim()) {
-    hide(saveNoteBtn);
+// If a note's title or text are empty, hide the save button
+// Or else show it
+var handleRenderSaveBtn = function() {
+  if (!$noteTitle.val().trim() || !$noteText.val().trim()) {
+    $saveNoteBtn.hide();
   } else {
-    show(saveNoteBtn);
+    $saveNoteBtn.show();
   }
 };
 
-// Render the list of note titles
-const renderNoteList = async (notes) => {
-  let jsonNotes = await notes.json();
-  if (window.location.pathname === '/notes') {
-    noteList.forEach((el) => (el.innerHTML = ''));
+// Render's the list of note titles
+var renderNoteList = function(notes) {
+  $noteList.empty();
+
+  var noteListItems = [];
+
+  for (var i = 0; i < notes.length; i++) {
+    var note = notes[i];
+
+    var $li = $("<li class='list-group-item'>").data(note);
+    var $span = $("<span>").text(note.title);
+    var $delBtn = $(
+      "<i class='fas fa-trash-alt float-right text-danger delete-note'>"
+    );
+
+    $li.append($span, $delBtn);
+    noteListItems.push($li);
   }
 
-  let noteListItems = [];
+  $noteList.append(noteListItems);
+};
 
-  // Create a list item
-  const createLi = (text, delBtn = true) => {
-    const liEl = document.createElement('li');
-    liEl.classList.add('list-group-item');
-
-    const spanEl = document.createElement('span');
-    spanEl.classList.add('list-item-title');
-    spanEl.innerText = text;
-    spanEl.addEventListener('click', handleNoteView);
-
-    liEl.append(spanEl);
-
-    if (delBtn) {
-      const delBtnEl = document.createElement('i');
-      delBtnEl.classList.add(
-        'fas',
-        'fa-trash-alt',
-        'float-right',
-        'text-danger',
-        'delete-note'
-      );
-      delBtnEl.addEventListener('click', handleNoteDelete);
-
-      liEl.append(delBtnEl);
-    }
-
-    return liEl;
-  };
-
-  // Check for empty notes
-  if (jsonNotes.length === 0) {
-    noteListItems.push(createLi('No saved Notes', false));
-  }
-
-  // Create list items for each note
-  jsonNotes.forEach((note) => {
-    const li = createLi(note.title);
-    li.dataset.note = JSON.stringify(note);
-
-    noteListItems.push(li);
+// Gets notes from the db and renders them to the sidebar
+var getAndRenderNotes = function() {
+  return getNotes().then(function(data) {
+    renderNoteList(data);
   });
-
-  if (window.location.pathname === '/notes') {
-    noteListItems.forEach((note) => noteList[0].append(note));
-  }
 };
 
-// Get and render the notes
-const getAndRenderNotes = () => getNotes().then(renderNoteList);
+$saveNoteBtn.on("click", handleNoteSave);
+$noteList.on("click", ".list-group-item", handleNoteView);
+$newNoteBtn.on("click", handleNewNoteView);
+$noteList.on("click", ".delete-note", handleNoteDelete);
+$noteTitle.on("keyup", handleRenderSaveBtn);
+$noteText.on("keyup", handleRenderSaveBtn);
 
-// Attach event listeners
-if (window.location.pathname === '/notes') {
-  saveNoteBtn.addEventListener('click', handleNoteSave);
-  newNoteBtn.addEventListener('click', handleNewNoteView);
-  noteTitle.addEventListener('keyup', handleRenderSaveBtn);
-  noteText.addEventListener('keyup', handleRenderSaveBtn);
-}
-
-// Initial rendering of notes
+// Gets and renders the initial list of notes
 getAndRenderNotes();
-
-app.listen(3001, () => {
-  console.log('Backend server is running on port 3001');
-});
-
-
-const express = require('express');
-const app = express();
-
-app.use(express.static('public')); // Assuming 'index.js' is in the 'public' directory
-
-// ... other routes and server setup ...
-
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
